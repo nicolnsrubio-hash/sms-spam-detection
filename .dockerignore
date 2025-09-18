@@ -49,6 +49,7 @@ README.md
 docs/
 *.txt
 !requirements.txt
+!requirements-minimal.txt
 
 # Archivos de logs locales
 logs/

@@ -39,7 +39,10 @@ class MLflowManager:
         tracking_dir = Path("mlruns")
         tracking_dir.mkdir(exist_ok=True)
 
-        mlflow.set_tracking_uri(f"file://{tracking_dir.absolute()}")
+        # Configurar URI usando sqlite para compatibilidad con Windows
+        db_path = tracking_dir / "mlflow.db"
+        tracking_uri = f"sqlite:///{db_path.absolute()}"
+        mlflow.set_tracking_uri(tracking_uri)
 
         # Crear o establecer experimento
         try:

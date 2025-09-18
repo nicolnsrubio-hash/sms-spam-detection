@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Tuple, Optional
 import sys
 import os
+import random
 
 # Agregar el directorio src al path
 sys.path.append(str(Path(__file__).parent / "src"))
@@ -26,18 +27,39 @@ class SpamDetectorApp:
     
     def __init__(self):
         """Inicializa la aplicación"""
-        self.config = self.load_config()
-        self.baseline_model = None
-        self.distilbert_model = None
-        self.best_model_type = None
+        # Configurar página solo una vez
+        if 'page_configured' not in st.session_state:
+            st.set_page_config(
+                page_title="SMS Spam Detector",
+                page_icon="📱",
+                layout="wide",
+                initial_sidebar_state="expanded"
+            )
+            st.session_state.page_configured = True
         
-        # Configurar página
-        st.set_page_config(
-            page_title=self.config['app']['title'],
-            page_icon="📱",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
+        self.config = self.load_config()
+        
+        # Inicializar session state
+        self._initialize_session_state()
+        
+    def _initialize_session_state(self):
+        """Inicializa todas las variables de session state"""
+        if 'message_text' not in st.session_state:
+            st.session_state.message_text = ""
+        if 'models_loaded' not in st.session_state:
+            st.session_state.models_loaded = False
+        if 'baseline_model' not in st.session_state:
+            st.session_state.baseline_model = None
+        if 'distilbert_model' not in st.session_state:
+            st.session_state.distilbert_model = None
+        if 'selected_model' not in st.session_state:
+            st.session_state.selected_model = None
+        if 'best_model_type' not in st.session_state:
+            st.session_state.best_model_type = None
+        if 'last_result' not in st.session_state:
+            st.session_state.last_result = None
+        if 'last_text_analyzed' not in st.session_state:
+            st.session_state.last_text_analyzed = ""
         
     def load_config(self) -> Dict:
         """Carga la configuración desde archivo YAML"""
@@ -58,14 +80,15 @@ class SpamDetectorApp:
             }
     
     def load_models(self) -> Tuple[bool, bool]:
-        """Carga los modelos entrenados"""
+        """Carga los modelos entrenados y los guarda en session_state"""
         baseline_loaded = False
         distilbert_loaded = False
         
         # Intentar cargar modelo baseline
         try:
-            self.baseline_model = BaselineModel()
-            self.baseline_model.load_model()
+            baseline_model = BaselineModel()
+            baseline_model.load_model()
+            st.session_state.baseline_model = baseline_model
             baseline_loaded = True
             st.success("✅ Modelo Baseline cargado correctamente")
         except Exception as e:
@@ -73,13 +96,18 @@ class SpamDetectorApp:
         
         # Intentar cargar modelo DistilBERT
         try:
-            self.distilbert_model = DistilBERTModel()
-            self.distilbert_model.load_model()
+            distilbert_model = DistilBERTModel()
+            distilbert_model.load_model()
+            st.session_state.distilbert_model = distilbert_model
             distilbert_loaded = True
             st.success("✅ Modelo DistilBERT cargado correctamente")
         except Exception as e:
             st.info(f"ℹ️ DistilBERT no disponible (se requiere entrenamiento): {str(e)[:50]}...")
             st.info("💡 Por ahora puedes usar el modelo Baseline que funciona perfectamente")
+        
+        # Marcar modelos como cargados
+        if baseline_loaded or distilbert_loaded:
+            st.session_state.models_loaded = True
         
         return baseline_loaded, distilbert_loaded
     
@@ -99,12 +127,12 @@ class SpamDetectorApp:
     
     def predict_with_model(self, text: str, model_type: str) -> Tuple[str, float, Dict]:
         """Realiza predicción con el modelo especificado"""
-        if model_type == 'baseline' and self.baseline_model:
+        if model_type == 'baseline' and st.session_state.baseline_model:
             try:
                 # Limpiar el texto de entrada
-                clean_text = self.baseline_model.vectorizer.transform([text])
-                predictions = self.baseline_model.model.predict(clean_text)
-                probabilities = self.baseline_model.model.predict_proba(clean_text)
+                clean_text = st.session_state.baseline_model.vectorizer.transform([text])
+                predictions = st.session_state.baseline_model.model.predict(clean_text)
+                probabilities = st.session_state.baseline_model.model.predict_proba(clean_text)
                 
                 pred = predictions[0]
                 prob = probabilities[0]
@@ -121,9 +149,9 @@ class SpamDetectorApp:
                 st.error(f"Error en predicción baseline: {e}")
                 return "ERROR", 0.0, {}
         
-        elif model_type == 'distilbert' and self.distilbert_model:
+        elif model_type == 'distilbert' and st.session_state.distilbert_model:
             try:
-                predictions, probabilities = self.distilbert_model.predict([text])
+                predictions, probabilities = st.session_state.distilbert_model.predict([text])
                 pred = predictions[0]
                 prob = probabilities[0]
                 
@@ -215,32 +243,67 @@ class SpamDetectorApp:
                     delta=f"{distilbert_f1 - comparison['target_f1']:.3f}"
                 )
             
-            # Gráfico comparativo
-            metrics_df = pd.DataFrame({
-                'Modelo': ['Baseline', 'DistilBERT'],
-                'F1-Score': [baseline_f1, distilbert_f1],
-                'Accuracy': [comparison['baseline']['accuracy'], comparison['distilbert']['accuracy']],
-                'Precision': [comparison['baseline']['precision'], comparison['distilbert']['precision']],
-                'Recall': [comparison['baseline']['recall'], comparison['distilbert']['recall']]
-            })
-            
-            fig = px.bar(
-                metrics_df.melt(id_vars='Modelo', var_name='Métrica', value_name='Valor'),
-                x='Métrica',
-                y='Valor',
-                color='Modelo',
-                barmode='group',
-                title="Comparación Detallada de Métricas",
-                color_discrete_sequence=['#1f77b4', '#ff7f0e']
-            )
-            
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            # Gráfico comparativo - solo mostrar si hay ambos modelos
+            if distilbert_f1 > 0:  # DistilBERT tiene resultados válidos
+                metrics_df = pd.DataFrame({
+                    'Modelo': ['Baseline', 'DistilBERT'],
+                    'F1-Score': [baseline_f1, distilbert_f1],
+                    'Accuracy': [comparison['baseline']['accuracy'], comparison['distilbert']['accuracy']],
+                    'Precision': [comparison['baseline']['precision'], comparison['distilbert']['precision']],
+                    'Recall': [comparison['baseline']['recall'], comparison['distilbert']['recall']]
+                })
+                
+                fig = px.bar(
+                    metrics_df.melt(id_vars='Modelo', var_name='Métrica', value_name='Valor'),
+                    x='Métrica',
+                    y='Valor',
+                    color='Modelo',
+                    barmode='group',
+                    title="Comparación Detallada de Métricas",
+                    color_discrete_sequence=['#1f77b4', '#ff7f0e']
+                )
+                
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True, key="comparison_chart")
+            else:
+                # Solo mostrar métricas del baseline si DistilBERT no está disponible
+                st.info("💡 Solo se muestran las métricas del modelo Baseline. Entrena el modelo DistilBERT para ver la comparación completa.")
+                
+                # Gráfico solo del baseline
+                metrics_df = pd.DataFrame({
+                    'Modelo': ['Baseline'],
+                    'F1-Score': [baseline_f1],
+                    'Accuracy': [comparison['baseline']['accuracy']],
+                    'Precision': [comparison['baseline']['precision']],
+                    'Recall': [comparison['baseline']['recall']]
+                })
+                
+                fig = px.bar(
+                    metrics_df.melt(id_vars='Modelo', var_name='Métrica', value_name='Valor'),
+                    x='Métrica',
+                    y='Valor',
+                    title="Métricas del Modelo Baseline",
+                    color_discrete_sequence=['#1f77b4']
+                )
+                
+                fig.update_layout(height=400, showlegend=False)
+                st.plotly_chart(fig, use_container_width=True, key="baseline_only_chart")
             
             # Mejor modelo
             best_model = "DistilBERT" if comparison['best_model'] == 'distilbert' else "Baseline"
             improvement = comparison['improvement']
-            st.success(f"🏆 **Mejor modelo**: {best_model} (mejora de +{improvement:.4f} en F1-Score)")
+            
+            if distilbert_f1 > 0:
+                st.success(f"🏆 **Mejor modelo**: {best_model} (mejora de +{improvement:.4f} en F1-Score)")
+            else:
+                st.info(f"🏆 **Modelo disponible**: {best_model} (F1-Score: {baseline_f1:.3f})")
+                
+                # Mostrar qué tan cerca está del objetivo
+                target_gap = comparison['target_f1'] - baseline_f1
+                if target_gap > 0:
+                    st.warning(f"⚡ Falta {target_gap:.3f} puntos para alcanzar el objetivo de {comparison['target_f1']:.3f}")
+                else:
+                    st.success("✅ ¡Objetivo de F1-Score alcanzado!")
             
         except Exception as e:
             st.error(f"Error cargando resultados de comparación: {e}")
@@ -266,9 +329,9 @@ class SpamDetectorApp:
             
             # Selección de modelo
             model_options = []
-            if self.baseline_model:
+            if st.session_state.baseline_model:
                 model_options.append("baseline")
-            if self.distilbert_model:
+            if st.session_state.distilbert_model:
                 model_options.append("distilbert")
             
             if model_options:
@@ -316,26 +379,71 @@ class SpamDetectorApp:
         st.subheader("📝 Analizar Mensaje SMS")
         
         # Ejemplos predefinidos
-        examples = {
-            "Ejemplo HAM": "Hi! How are you doing today? Want to grab coffee later?",
-            "Ejemplo SPAM": "CONGRATULATIONS! You've won a $1000 gift card! Click here to claim now: http://spam-link.com",
-            "Ejemplo Neutro": "Thanks for your message. I'll get back to you soon."
-        }
+        examples_ham = [
+            # Español
+            "Hola, ¿cómo estás? ¿Nos vemos para almorzar el sábado?",
+            "Mamá, ya llegué a casa. Todo bien en el trabajo hoy.",
+            "Recordatorio: reunión mañana a las 10am en la sala de juntas.",
+            "¿Puedes recoger leche camino a casa? Gracias amor.",
+            "Feliz cumpleaños! Espero que tengas un día maravilloso.",
+            # Inglés
+            "Hi! How are you doing today? Want to grab coffee later?",
+            "Thanks for your message. I'll get back to you soon.",
+            "Meeting moved to 3pm tomorrow. See you there.",
+            "Great job on the presentation today! Well done.",
+            "Don't forget to pick up the kids at 5pm."
+        ]
         
-        example_choice = st.selectbox("🎯 Usar ejemplo predefinido:", ["Escribir mensaje personalizado"] + list(examples.keys()))
+        examples_spam = [
+            # Español
+            "¡FELICIDADES! Has ganado $50,000 pesos. Haz clic aquí para reclamar: www.premio-falso.com",
+            "OFERTA LIMITADA: iPhone 15 GRATIS. Solo hoy. Envía PREMIO al 4545 para recibir tu regalo.",
+            "Tu cuenta bancaria será suspendida. Confirma tus datos AHORA: bit.ly/banco-falso",
+            "¡Últimas 24 horas! Crédito pre-aprobado de $100,000. Sin papeleos. Responde YA.",
+            "URGENTE: Problema con tu tarjeta de crédito. Llama al 123-456-7890 inmediatamente.",
+            # Inglés
+            "CONGRATULATIONS! You've won a $1000 gift card! Click here to claim now: http://spam-link.com",
+            "FREE iPhone 14! Limited time offer. Text WIN to 12345 to claim your prize NOW!",
+            "Your account will be suspended. Verify your info: secure-bank-update.com",
+            "FINAL NOTICE: You owe $2,500. Pay immediately or face legal action. Click here.",
+            "Amazing weight loss pills! Lose 30 lbs in 7 days! Order now: miracle-diet.net"
+        ]
         
-        if example_choice != "Escribir mensaje personalizado":
-            default_text = examples[example_choice]
-        else:
-            default_text = ""
+        # Inicializar session state para el texto
+        if 'message_text' not in st.session_state:
+            st.session_state.message_text = ""
+        
+        # Botones para ejemplos predefinidos con selección aleatoria
+        st.write("🎯 **Ejemplos predefinidos:**")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📝 HAM Aleatorio", help="Mensaje legítimo aleatorio (español/inglés)"):
+                st.session_state.message_text = random.choice(examples_ham)
+                st.rerun()
+        
+        with col2:
+            if st.button("🚨 SPAM Aleatorio", help="Mensaje spam aleatorio (español/inglés)"):
+                st.session_state.message_text = random.choice(examples_spam)
+                st.rerun()
+        
+        with col3:
+            if st.button("🗑️ Limpiar", help="Limpiar texto"):
+                st.session_state.message_text = ""
+                st.rerun()
         
         user_input = st.text_area(
             "Introduce el mensaje SMS a analizar:",
-            value=default_text,
+            value=st.session_state.message_text,
             height=100,
             max_chars=self.config['app']['max_input_length'],
-            placeholder="Ejemplo: Free msg: Txt STOP to 85543 to stop receiving messages..."
+            placeholder="Ejemplo: Free msg: Txt STOP to 85543 to stop receiving messages...",
+            key="message_input"
         )
+        
+        # Actualizar session state cuando el usuario escriba algo
+        if user_input != st.session_state.message_text:
+            st.session_state.message_text = user_input
         
         col1, col2, col3 = st.columns([1, 2, 1])
         
@@ -343,47 +451,65 @@ class SpamDetectorApp:
             analyze_button = st.button("🔍 Analizar Mensaje", type="primary", use_container_width=True)
         
         if analyze_button and user_input.strip():
-            with st.spinner("Analizando mensaje..."):
-                # Realizar predicción
-                result, confidence, details = self.predict_with_model(user_input.strip(), selected_model)
-                
-                if result != "ERROR":
-                    # Mostrar resultado principal
-                    st.subheader("📋 Resultado del Análisis")
-                    
-                    # Resultado con color
-                    if result == "SPAM":
-                        st.error(f"🚨 **SPAM DETECTADO** (Confianza: {confidence:.1%})")
-                    else:
-                        st.success(f"✅ **MENSAJE LEGÍTIMO** (Confianza: {confidence:.1%})")
-                    
-                    # Detalles en columnas
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.metric(
-                            "🎯 Probabilidad SPAM",
-                            f"{details.get('spam_probability', 0):.1%}",
-                            delta=None
-                        )
-                    
-                    with col2:
-                        st.metric(
-                            "✅ Probabilidad HAM",
-                            f"{details.get('ham_probability', 0):.1%}",
-                            delta=None
-                        )
-                    
-                    # Gráfico de probabilidades
-                    if details:
-                        fig = self.create_probability_chart(details)
-                        st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Información del modelo usado
-                    st.info(f"📊 Modelo utilizado: **{details.get('model_used', 'Desconocido')}**")
-                    
-                else:
-                    st.error("❌ Error al procesar el mensaje")
+            # Realizar predicción y guardar en session state
+            result, confidence, details = self.predict_with_model(user_input.strip(), selected_model)
+            
+            if result != "ERROR":
+                # Guardar resultados en session state
+                st.session_state.last_result = {
+                    'result': result,
+                    'confidence': confidence,
+                    'details': details,
+                    'text': user_input.strip(),
+                    'model': selected_model
+                }
+                st.session_state.last_text_analyzed = user_input.strip()
+            else:
+                st.session_state.last_result = None
+                st.error("❌ Error al procesar el mensaje")
+        
+        # Mostrar resultados si existen
+        if st.session_state.last_result and st.session_state.last_result['text'] == user_input.strip():
+            result_data = st.session_state.last_result
+            
+            # Mostrar resultado principal
+            st.subheader("📋 Resultado del Análisis")
+            
+            # Resultado con color
+            if result_data['result'] == "SPAM":
+                st.error(f"🚨 **SPAM DETECTADO** (Confianza: {result_data['confidence']:.1%})")
+            else:
+                st.success(f"✅ **MENSAJE LEGÍTIMO** (Confianza: {result_data['confidence']:.1%})")
+            
+            # Detalles en columnas
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric(
+                    "🎯 Probabilidad SPAM",
+                    f"{result_data['details'].get('spam_probability', 0):.1%}",
+                    delta=None
+                )
+            
+            with col2:
+                st.metric(
+                    "✅ Probabilidad HAM",
+                    f"{result_data['details'].get('ham_probability', 0):.1%}",
+                    delta=None
+                )
+            
+            # Gráfico de probabilidades en container específico
+            chart_container = st.container()
+            with chart_container:
+                if result_data['details']:
+                    try:
+                        fig = self.create_probability_chart(result_data['details'])
+                        st.plotly_chart(fig, use_container_width=True, key=f"chart_{hash(user_input.strip())}")
+                    except Exception as e:
+                        st.warning(f"No se pudo generar el gráfico: {e}")
+            
+            # Información del modelo usado
+            st.info(f"📊 Modelo utilizado: **{result_data['details'].get('model_used', 'Desconocido')}**")
         
         elif analyze_button:
             st.warning("⚠️ Por favor, introduce un mensaje para analizar")

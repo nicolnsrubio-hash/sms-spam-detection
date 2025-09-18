@@ -1,0 +1,37 @@
+# Dockerfile optimizado para desarrollo rápido
+FROM python:3.9-slim
+
+# Establecer el directorio de trabajo
+WORKDIR /app
+
+# Instalar solo dependencias básicas del sistema
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar requirements mínimos para desarrollo
+COPY requirements-minimal.txt .
+
+# Instalar dependencias mínimas
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install -r requirements-minimal.txt
+
+# Copiar el código fuente
+COPY . .
+
+# Crear directorios necesarios
+RUN mkdir -p models logs results data
+
+# Variables de entorno
+ENV PYTHONPATH=/app
+ENV STREAMLIT_SERVER_PORT=8501
+ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+ENV STREAMLIT_SERVER_HEADLESS=true
+ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+
+# Exponer puerto
+EXPOSE 8501
+
+# Comando por defecto
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

@@ -1,25 +1,21 @@
-# Usar imagen base de Python 3.9
+# Dockerfile simplificado para pruebas rápidas
 FROM python:3.9-slim
 
 # Establecer el directorio de trabajo
 WORKDIR /app
 
-# Instalar dependencias del sistema necesarias
+# Instalar dependencias del sistema mínimas
 RUN apt-get update && apt-get install -y \
-    build-essential \
     curl \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar archivos de requisitos
-COPY requirements.txt .
-
-# Actualizar pip e instalar dependencias de Python con CPU-only para PyTorch
-RUN pip install --no-cache-dir --upgrade pip
-# Instalar PyTorch CPU-only primero para acelerar la construcción
-RUN pip install --no-cache-dir torch==2.0.1+cpu torchvision==0.15.2+cpu torchaudio==2.0.2+cpu --index-url https://download.pytorch.org/whl/cpu
-# Instalar el resto de dependencias
-RUN pip install --no-cache-dir -r requirements.txt
+# Instalar solo las dependencias esenciales para Streamlit
+RUN pip install --no-cache-dir \
+    streamlit \
+    pandas \
+    scikit-learn \
+    joblib \
+    numpy
 
 # Copiar el código fuente
 COPY . .

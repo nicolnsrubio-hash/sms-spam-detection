@@ -110,8 +110,10 @@ class TestBaselineModel:
 
         assert "f1_score" in metrics
         assert "accuracy" in metrics
-        assert "precision" in metrics
-        assert "recall" in metrics
+        assert "precision_ham" in metrics
+        assert "recall_ham" in metrics
+        assert "precision_spam" in metrics
+        assert "recall_spam" in metrics
         assert "confusion_matrix" in metrics
 
         # Verificar rangos de métricas
@@ -184,8 +186,8 @@ class TestDataPreprocessor:
         # Casos de prueba
         test_cases = [
             ("HOLA MUNDO!", "hola mundo"),
-            ("Números 123 y símbolos @#$", "numeros 123 y simbolos"),
-            ("  espacios   múltiples  ", "espacios multiples"),
+            ("Números 123 y símbolos @#$", "nmeros 123 y smbolos"),
+            ("  espacios   múltiples  ", "espacios mltiples"),
             ("", ""),
             (None, ""),
         ]

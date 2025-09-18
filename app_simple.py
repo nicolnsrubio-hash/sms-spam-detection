@@ -21,6 +21,17 @@ st.markdown("Detecta si un mensaje SMS es spam o no usando machine learning")
 if 'model_loaded' not in st.session_state:
     st.session_state.model_loaded = False
     st.session_state.baseline_model = None
+    
+    # Intentar cargar modelo automáticamente
+    try:
+        from baseline_model import BaselineModel
+        baseline = BaselineModel()
+        baseline.load_model()
+        st.session_state.baseline_model = baseline
+        st.session_state.model_loaded = True
+    except Exception as e:
+        st.session_state.model_loaded = False
+        st.session_state.error_msg = str(e)
 
 # Sidebar
 with st.sidebar:
@@ -62,7 +73,18 @@ with st.sidebar:
 
 # Interfaz principal
 if not st.session_state.model_loaded:
-    st.warning("⚠️ Primero carga el modelo usando el botón en la barra lateral")
+    st.error("❌ **Error cargando el modelo**")
+    if hasattr(st.session_state, 'error_msg'):
+        st.error(f"Detalles: {st.session_state.error_msg}")
+    
+    st.info("💡 **Posibles soluciones:**")
+    st.markdown("""
+    1. Verifica que el modelo esté entrenado ejecutando: `python src/baseline_model.py`
+    2. Verifica que existan los archivos:
+       - `models/baseline_model.pkl`
+       - `models/tfidf_vectorizer.pkl`
+    3. Intenta recargar usando el botón en la barra lateral
+    """)
     st.stop()
 
 # Área principal
@@ -109,18 +131,17 @@ if analyze_button and user_input.strip():
     
     with st.spinner("Analizando mensaje..."):
         try:
-            # Hacer predicción
+            # Hacer predicción usando el método de la clase
             model = st.session_state.baseline_model
-            predictions = model.model.predict(model.vectorizer.transform([user_input]))
-            probabilities = model.model.predict_proba(model.vectorizer.transform([user_input]))
+            predictions, probabilities = model.predict([user_input])
             
             pred = predictions[0]
             prob = probabilities[0]
             
             result = "SPAM" if pred == 1 else "HAM"
             confidence = float(prob[pred])
-            spam_prob = float(prob[1])
-            ham_prob = float(prob[0])
+            spam_prob = float(prob[1]) if len(prob) > 1 else 0.0
+            ham_prob = float(prob[0]) if len(prob) > 0 else 0.0
             
             # Mostrar resultados
             st.subheader("📋 Resultado del Análisis")
