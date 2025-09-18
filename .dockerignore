@@ -1,0 +1,87 @@
+# Archivos de Git
+.git
+.gitignore
+
+# Archivos de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.nyc_output
+
+# Archivos de entorno virtual
+.env
+.venv
+ENV/
+env/
+venv/
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# Documentos y archivos de desarrollo
+README.md
+*.md
+docs/
+*.txt
+!requirements.txt
+
+# Archivos de logs locales
+logs/
+*.log
+
+# Archivos temporales de modelos (se entrenarán en contenedor)
+models/*.pkl
+models/*.bin
+models/*.safetensors
+models/*/
+
+# Resultados locales
+results/
+*.png
+*.jpg
+*.jpeg
+
+# Datos temporales
+data/*.csv
+data/*.tsv
+!data/.gitkeep
+
+# Archivos de Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Archivos de pytest
+.pytest_cache/
+
+# Archivos de mypy
+.mypy_cache/
+
+# Archivos de Docker
+.dockerignore
+Dockerfile
+docker-compose.yml

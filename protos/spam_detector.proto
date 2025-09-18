@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package spam_detector;
+
+// Servicio de detección de spam
+service SpamDetectorService {
+    // Predice si un mensaje es spam o no
+    rpc PredictSpam(SpamPredictionRequest) returns (SpamPredictionResponse);
+    
+    // Obtiene el estado del modelo
+    rpc GetModelStatus(ModelStatusRequest) returns (ModelStatusResponse);
+}
+
+// Mensaje de solicitud para predicción
+message SpamPredictionRequest {
+    string message = 1;
+    string model_type = 2;  // "baseline" o "distilbert"
+}
+
+// Mensaje de respuesta para predicción
+message SpamPredictionResponse {
+    bool is_spam = 1;
+    float confidence = 2;
+    float spam_probability = 3;
+    float ham_probability = 4;
+    string model_used = 5;
+    string error_message = 6;
+}
+
+// Mensaje de solicitud para estado del modelo
+message ModelStatusRequest {
+    string model_type = 1;
+}
+
+// Mensaje de respuesta para estado del modelo
+message ModelStatusResponse {
+    bool is_loaded = 1;
+    string model_name = 2;
+    float accuracy = 3;
+    string last_trained = 4;
+    string error_message = 5;
+}

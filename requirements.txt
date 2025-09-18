@@ -1,0 +1,50 @@
+# Core ML libraries
+torch>=2.0.0
+transformers>=4.25.0
+datasets>=2.8.0
+scikit-learn>=1.2.0
+pandas>=1.5.0
+numpy>=1.24.0
+
+# NLP and text processing
+nltk>=3.8
+spacy>=3.5.0
+
+# Web application
+streamlit>=1.25.0
+plotly>=5.15.0
+
+# Model persistence and utilities
+joblib>=1.2.0
+# pickle5>=0.0.11  # Commented out due to build issues on Windows
+
+# Evaluation and metrics
+seaborn>=0.12.0
+matplotlib>=3.6.0
+
+# Configuration and logging
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Development and testing
+pytest>=7.2.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Progress bars
+tqdm>=4.64.0
+
+# HTTP requests (for data download)
+requests>=2.28.0
+
+# gRPC for microservices
+grpcio>=1.50.0
+grpcio-tools>=1.50.0
+protobuf>=4.21.0
+
+# MLflow for model management
+mlflow>=2.8.0
+
+# Additional testing and quality
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0

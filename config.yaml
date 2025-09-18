@@ -1,0 +1,66 @@
+# SMS Spam Detection Project Configuration
+
+# Data Configuration
+data:
+  dataset_url: "https://raw.githubusercontent.com/uciml/sms-spam-collection-dataset/master/SMSSpamCollection"
+  data_path: "data/sms_spam_enhanced.tsv"
+  test_size: 0.2
+  random_state: 42
+
+# Baseline Model Configuration
+baseline:
+  model_name: "tfidf_logistic"
+  max_features: 8000
+  ngram_range: [1, 3]
+  min_df: 1
+  max_df: 0.90
+  C: 10.0
+  max_iter: 2000
+  solver: "liblinear"
+  model_path: "models/baseline_model.pkl"
+  vectorizer_path: "models/tfidf_vectorizer.pkl"
+
+# DistilBERT Model Configuration
+distilbert:
+  model_name: "distilbert-base-uncased"
+  num_labels: 2
+  max_length: 128
+  batch_size: 16
+  learning_rate: 2e-5
+  num_epochs: 3
+  warmup_steps: 500
+  weight_decay: 0.01
+  model_path: "models/distilbert_spam_classifier"
+  tokenizer_path: "models/distilbert_tokenizer"
+
+# Training Configuration
+training:
+  save_steps: 500
+  eval_steps: 500
+  logging_steps: 100
+  evaluation_strategy: "steps"
+  save_strategy: "steps"
+  load_best_model_at_end: True
+  metric_for_best_model: "f1"
+
+# Evaluation Configuration
+evaluation:
+  target_f1_score: 0.95
+  metrics: ["accuracy", "precision", "recall", "f1"]
+  
+# Streamlit App Configuration
+app:
+  title: "SMS Spam Detector"
+  description: "Detecta si un mensaje SMS es spam o no usando modelos de machine learning"
+  max_input_length: 500
+
+# Model Selection
+model_selection:
+  use_best_model: True  # If True, automatically select the best performing model
+  
+# Paths
+paths:
+  data_dir: "data"
+  models_dir: "models"
+  logs_dir: "logs"
+  results_dir: "results"

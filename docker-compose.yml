@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  sms-spam-detector:
+    build: .
+    container_name: sms_spam_detector_app
+    ports:
+      - "8501:8501"
+    volumes:
+      # Montar directorios para persistir modelos y resultados
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./results:/app/results
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - sms-spam-net
+
+  # Servicio opcional para entrenar modelos
+  model-trainer:
+    build: .
+    container_name: sms_spam_trainer
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./results:/app/results
+      - ./logs:/app/logs
+    environment:
+      - PYTHONPATH=/app
+    command: >
+      sh -c "
+        echo 'Iniciando entrenamiento de modelos...' &&
+        python src/data_preprocessing.py &&
+        echo 'Entrenando modelo baseline...' &&
+        python src/baseline_model.py &&
+        echo 'Entrenando modelo DistilBERT...' &&
+        python src/distilbert_model.py &&
+        echo 'Evaluando modelos...' &&
+        python src/model_evaluation.py &&
+        echo 'Entrenamiento completado!'
+      "
+    profiles:
+      - training  # Solo se ejecuta con: docker-compose --profile training up
+    networks:
+      - sms-spam-net
+
+networks:
+  sms-spam-net:
+    driver: bridge
+
+volumes:
+  models_data:
+  app_data:
+  results_data:
+  logs_data:
