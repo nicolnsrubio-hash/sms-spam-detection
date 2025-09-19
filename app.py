@@ -323,9 +323,9 @@ class SpamDetectorApp:
                     baseline_loaded, distilbert_loaded = self.load_models()
                 
                 if baseline_loaded or distilbert_loaded:
-                    self.best_model_type = self.get_best_model_type()
-                    if self.best_model_type:
-                        st.info(f"🏆 Mejor modelo detectado: {self.best_model_type}")
+                    st.session_state.best_model_type = self.get_best_model_type()
+                    if st.session_state.best_model_type:
+                        st.info(f"🏆 Mejor modelo detectado: {st.session_state.best_model_type}")
             
             # Selección de modelo
             model_options = []
@@ -338,8 +338,8 @@ class SpamDetectorApp:
                 if len(model_options) > 1:
                     # Si hay ambos modelos, usar el mejor por defecto
                     default_idx = 0
-                    if self.best_model_type and self.best_model_type in model_options:
-                        default_idx = model_options.index(self.best_model_type)
+                    if st.session_state.best_model_type and st.session_state.best_model_type in model_options:
+                        default_idx = model_options.index(st.session_state.best_model_type)
                     
                     selected_model = st.selectbox(
                         "📊 Seleccionar Modelo",

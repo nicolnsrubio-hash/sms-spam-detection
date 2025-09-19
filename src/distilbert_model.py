@@ -149,25 +149,31 @@ class DistilBERTModel:
 
         output_dir = Path(self.config["paths"]["logs_dir"]) / "distilbert_training"
 
+        # Desactivar integración MLflow/WandB
+        import os
+        os.environ["DISABLE_MLFLOW_INTEGRATION"] = "True"
+        os.environ["WANDB_DISABLED"] = "true"
+        
         training_args = TrainingArguments(
             output_dir=str(output_dir),
-            num_train_epochs=distilbert_config["num_epochs"],
-            per_device_train_batch_size=distilbert_config["batch_size"],
-            per_device_eval_batch_size=distilbert_config["batch_size"],
-            warmup_steps=distilbert_config["warmup_steps"],
-            weight_decay=distilbert_config["weight_decay"],
-            learning_rate=distilbert_config["learning_rate"],
-            logging_steps=training_config["logging_steps"],
-            evaluation_strategy=training_config["evaluation_strategy"],
-            eval_steps=training_config["eval_steps"],
+            num_train_epochs=int(distilbert_config["num_epochs"]),
+            per_device_train_batch_size=int(distilbert_config["batch_size"]),
+            per_device_eval_batch_size=int(distilbert_config["batch_size"]),
+            warmup_steps=int(distilbert_config["warmup_steps"]),
+            weight_decay=float(distilbert_config["weight_decay"]),
+            learning_rate=float(distilbert_config["learning_rate"]),
+            logging_steps=int(training_config["logging_steps"]),
+            eval_strategy=training_config["evaluation_strategy"],
+            eval_steps=int(training_config["eval_steps"]),
             save_strategy=training_config["save_strategy"],
-            save_steps=training_config["save_steps"],
-            load_best_model_at_end=training_config["load_best_model_at_end"],
+            save_steps=int(training_config["save_steps"]),
+            load_best_model_at_end=bool(training_config["load_best_model_at_end"]),
             metric_for_best_model=training_config["metric_for_best_model"],
             greater_is_better=True,
             logging_dir=str(output_dir / "logs"),
-            report_to=None,  # Desactivar wandb/tensorboard
+            report_to=[],  # Lista vacía para desactivar todos los reportes
             dataloader_pin_memory=False,
+            disable_tqdm=False,
         )
 
         return training_args
